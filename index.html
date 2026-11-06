@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14161c">
+<title>Registro de tomas</title>
+<meta name="description" content="Registrá las tomas de tu bebé: hora, tipo (relactador, mamadera, jeringa), ml, próxima toma y totales por día, semana y mes.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tomas">
+<style>
+  :root{
+    --bg:#14161c; --card:#1d2029; --card2:#252937; --text:#eef0f5; --muted:#9aa1b2;
+    --line:#2f3444; --accent:#7cc4ff; --accent-ink:#0c2233; --ok:#6fd49a; --warn:#ffb86b; --bad:#ff7a7a;
+    --c-relactador:#c79bff; --c-mamadera:#7cc4ff; --c-jeringa:#ffc36b;
+    --r:16px;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f4f5f8; --card:#fff; --card2:#eef0f5; --text:#1b1e27; --muted:#626a7d; --line:#dfe2ea;
+      --accent:#1f7fd1; --accent-ink:#fff; --c-relactador:#8a4fd6; --c-mamadera:#1f7fd1; --c-jeringa:#c98200; }
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  .grid2>*{min-width:0}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+  body{padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 84px)}
+  h1{font-size:20px;margin:4px 2px 12px}
+  h2{font-size:15px;margin:0 0 10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .card{background:var(--card);border-radius:var(--r);padding:16px;margin-bottom:12px;border:1px solid var(--line)}
+  .muted{color:var(--muted)} .small{font-size:13px}
+  .row{display:flex;gap:10px;align-items:center}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .big{font-size:40px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+  .stat{background:var(--card2);border-radius:12px;padding:10px 12px}
+  .stat b{display:block;font-size:22px}
+  .stat span{font-size:12px;color:var(--muted)}
+  button{font:inherit;color:inherit;border:0;cursor:pointer;border-radius:12px}
+  .btn{background:var(--accent);color:var(--accent-ink);font-weight:700;padding:14px 16px;width:100%;font-size:17px}
+  .btn2{background:var(--card2);padding:10px 12px;font-weight:600}
+  .btn-danger{background:transparent;color:var(--bad);border:1px solid var(--bad);padding:10px 12px;font-weight:600}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .seg button{background:var(--card2);padding:12px 4px;font-weight:600;border:2px solid transparent}
+  .seg button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--card2))}
+  label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+  input,select{font:inherit;color:var(--text);background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%}
+  input[type=number]{font-size:22px;font-weight:700;text-align:center}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .chips button{background:var(--card2);padding:8px 12px;font-size:14px;font-weight:600}
+  .chips button.on{outline:2px solid var(--accent)}
+  nav{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);
+    background:var(--card);border-top:1px solid var(--line);padding:6px 6px calc(env(safe-area-inset-bottom) + 6px);z-index:5}
+  nav button{background:none;padding:8px 2px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px}
+  nav button.on{color:var(--accent);font-weight:700}
+  nav svg{width:22px;height:22px}
+  .view{display:none}.view.on{display:block}
+  .feed{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .feed:last-child{border-bottom:0}
+  .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .feed .t{font-weight:700;font-variant-numeric:tabular-nums;min-width:52px}
+  .feed .m{flex:1;min-width:0}
+  .feed .ml{font-weight:700;font-variant-numeric:tabular-nums}
+  .feed .note{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dayhead{display:flex;justify-content:space-between;align-items:baseline;margin:6px 0 2px}
+  .dayhead b{font-size:15px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700}
+  .pill.ok{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok)}
+  .pill.warn{background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--warn)}
+  .pill.bad{background:color-mix(in srgb,var(--bad) 22%,transparent);color:var(--bad)}
+  .banner{background:color-mix(in srgb,var(--warn) 18%,var(--card));border:1px solid var(--warn);color:var(--text);
+    border-radius:12px;padding:10px 12px;font-size:13px;margin-bottom:12px}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center;z-index:10}
+  .modal.on{display:flex}
+  .sheet{background:var(--card);width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:18px 16px calc(env(safe-area-inset-bottom) + 18px);
+    max-height:92vh;overflow:auto}
+  .sheet h3{margin:0 0 4px;font-size:18px}
+  .typebar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--card2);margin:8px 0}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  td,th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left}
+  th{color:var(--muted);font-weight:600;font-size:12px}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+  .chart{width:100%;height:auto;display:block;margin-top:6px}
+  .empty{color:var(--muted);text-align:center;padding:18px 0}
+  .timerWrap{display:flex;flex-direction:column;align-items:center;padding:6px 0 4px}
+  .bigBtn{width:190px;height:190px;border-radius:50%;font-size:20px;font-weight:800;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:4px;background:var(--accent);color:var(--accent-ink);
+    box-shadow:0 0 0 10px color-mix(in srgb,var(--accent) 18%,transparent);transition:transform .1s}
+  .bigBtn:active{transform:scale(.97)}
+  .bigBtn.running{background:var(--ok);color:#0b2416;box-shadow:0 0 0 10px color-mix(in srgb,var(--ok) 22%,transparent);animation:pulse 2.4s ease-in-out infinite}
+  .bigBtn .clock{font-size:34px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .bigBtn .lbl{font-size:14px;font-weight:700;opacity:.85}
+  @keyframes pulse{50%{box-shadow:0 0 0 18px color-mix(in srgb,var(--ok) 10%,transparent)}}
+  .linkBtn{background:none;color:var(--accent);font-weight:600;padding:10px;font-size:15px}
+  .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--text);color:var(--bg);
+    padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+<div id="banner" class="banner" hidden></div>
+
+<!-- ============ INICIO ============ -->
+<section id="v-home" class="view on">
+  <h1>Tomas de alimentación</h1>
+
+  <div class="card" id="nextCard">
+    <h2>Próxima toma</h2>
+    <div class="row" style="justify-content:space-between;align-items:flex-end">
+      <div class="big" id="nextTime">--:--</div>
+      <div id="nextPill"></div>
+    </div>
+    <div class="muted small" id="nextSub" style="margin-top:6px">Todavía no hay tomas registradas.</div>
+  </div>
+
+  <div class="card timerWrap">
+    <button class="bigBtn" id="btnTimer"><span class="clock" id="tClock">▶</span><span class="lbl" id="tLbl">Empezar toma</span></button>
+    <div class="muted small" id="tSub" style="margin-top:16px;text-align:center">Tocá al empezar a darle de comer</div>
+    <div class="row" style="justify-content:center;gap:4px">
+      <button class="linkBtn" id="btnNew">+ Cargar toma manual</button>
+      <button class="linkBtn" id="btnCancelRun" hidden>Descartar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Hoy</h2>
+    <div class="grid2">
+      <div class="stat"><b id="todayCount">0</b><span>tomas (desde las 00:00)</span></div>
+      <div class="stat"><b id="todayMl">0 ml</b><span>tomados hoy</span></div>
+      <div class="stat"><b id="h24Count">0</b><span>tomas últimas 24 h</span></div>
+      <div class="stat"><b id="h24Ml">0 ml</b><span>últimas 24 h</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Últimas tomas</h2>
+    <div id="recent"></div>
+  </div>
+</section>
+
+<!-- ============ HISTORIAL ============ -->
+<section id="v-hist" class="view">
+  <h1>Historial</h1>
+  <div id="history"></div>
+  <button class="btn2" id="btnMore" style="width:100%;margin-top:4px" hidden>Ver más días</button>
+</section>
+
+<!-- ============ ESTADÍSTICAS ============ -->
+<section id="v-stats" class="view">
+  <h1>Estadísticas</h1>
+  <div class="card">
+    <label style="margin-top:0">Período</label>
+    <select id="range">
+      <option value="today">Hoy</option>
+      <option value="yesterday">Ayer</option>
+      <option value="last7" selected>Últimos 7 días</option>
+      <option value="week">Esta semana (lun–dom)</option>
+      <option value="lastweek">Semana pasada</option>
+      <option value="month">Este mes</option>
+      <option value="lastmonth">Mes pasado</option>
+      <option value="lastN">Últimos N días…</option>
+      <option value="custom">Rango personalizado…</option>
+    </select>
+    <div id="nWrap" hidden><label>Cantidad de días</label><input id="nDays" type="number" min="1" max="366" value="14"></div>
+    <div id="customWrap" class="grid2" hidden>
+      <div><label>Desde</label><input id="from" type="date"></div>
+      <div><label>Hasta</label><input id="to" type="date"></div>
+    </div>
+    <div class="muted small" id="rangeLabel" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Totales</h2>
+    <div class="grid2">
+      <div class="stat"><b id="sCount">0</b><span>tomas</span></div>
+      <div class="stat"><b id="sMl">0 ml</b><span>total</span></div>
+      <div class="stat"><b id="sMlDay">0 ml</b><span>promedio por día</span></div>
+      <div class="stat"><b id="sCountDay">0</b><span>tomas por día</span></div>
+      <div class="stat"><b id="sMlFeed">0 ml</b><span>promedio por toma</span></div>
+      <div class="stat"><b id="sGap">–</b><span>intervalo promedio</span></div>
+      <div class="stat"><b id="sDur">–</b><span>duración promedio</span></div>
+      <div class="stat"><b id="sMax">–</b><span>toma más grande</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Por tipo</h2>
+    <div class="typebar" id="typeBar"></div>
+    <table id="typeTable"></table>
+  </div>
+
+  <div class="card">
+    <h2>ml por día</h2>
+    <div id="chart"></div>
+  </div>
+
+  <div class="card">
+    <h2>Detalle por día</h2>
+    <table id="dayTable"></table>
+  </div>
+
+  <button class="btn2" id="btnCsv" style="width:100%">Copiar período como CSV</button>
+</section>
+
+<!-- ============ AJUSTES ============ -->
+<section id="v-set" class="view">
+  <h1>Ajustes</h1>
+  <div class="card">
+    <h2>Intervalo entre tomas</h2>
+    <div class="muted small">La próxima toma se calcula como: hora de inicio de la última toma + este intervalo.</div>
+    <div class="grid2">
+      <div><label>Horas</label><input id="ivH" type="number" min="0" max="12" step="1"></div>
+      <div><label>Minutos</label><input id="ivM" type="number" min="0" max="59" step="5"></div>
+    </div>
+    <div class="chips" id="ivChips"></div>
+    <button class="btn" id="btnSaveIv" style="margin-top:14px">Guardar intervalo</button>
+  </div>
+  <div class="card">
+    <h2>Cantidad sugerida</h2>
+    <div class="muted small">Valor que aparece precargado al registrar una toma (podés cambiarlo cada vez).</div>
+    <label>ml por defecto</label><input id="defMl" type="number" min="0" max="500" step="5">
+    <button class="btn2" id="btnSaveMl" style="width:100%;margin-top:10px">Guardar</button>
+  </div>
+  <div class="card">
+    <h2>Tus datos</h2>
+    <div class="small muted" id="storeInfo"></div>
+    <button class="btn2" id="btnExport" style="width:100%;margin-top:12px">Descargar copia de seguridad (.json)</button>
+    <button class="btn2" id="btnExportCsv" style="width:100%;margin-top:8px">Descargar todo en Excel (.csv)</button>
+    <label>Restaurar copia</label>
+    <select id="importMode">
+      <option value="merge">Combinar con lo que ya hay</option>
+      <option value="replace">Reemplazar todo</option>
+    </select>
+    <label class="btn2" for="fileImport" style="display:block;text-align:center;color:var(--text);margin-top:8px;padding:12px;font-size:16px">Elegir archivo…</label>
+    <input id="fileImport" type="file" accept="application/json,.json" hidden>
+    <div class="small muted" style="margin-top:10px">Sirve también para pasar los datos a otro teléfono.</div>
+  </div>
+  <div class="small muted" style="text-align:center;padding:8px 0 4px">Registro de tomas · código abierto</div>
+</section>
+
+<nav>
+  <button data-v="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Inicio</button>
+  <button data-v="hist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Historial</button>
+  <button data-v="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Estadísticas</button>
+  <button data-v="set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Ajustes</button>
+</nav>
+
+<!-- ============ MODAL TOMA ============ -->
+<div class="modal" id="mFeed">
+  <form class="sheet" id="feedForm" autocomplete="off">
+    <h3 id="mTitle">Nueva toma</h3>
+    <label>Hora de inicio</label>
+    <input id="fStart" type="datetime-local" required>
+    <div class="chips" id="startChips">
+      <button type="button" data-min="0">Ahora</button>
+      <button type="button" data-min="-5">−5 min</button>
+      <button type="button" data-min="-10">−10 min</button>
+      <button type="button" data-min="-15">−15 min</button>
+      <button type="button" data-min="-30">−30 min</button>
+    </div>
+    <label>Hora de fin (opcional)</label>
+    <input id="fEnd" type="datetime-local">
+    <label>Tipo</label>
+    <div class="seg" id="fType">
+      <button type="button" data-t="relactador">Relactador</button>
+      <button type="button" data-t="mamadera">Mamadera</button>
+      <button type="button" data-t="jeringa">Jeringa</button>
+    </div>
+    <label>Cantidad de fórmula (ml)</label>
+    <div class="row">
+      <button type="button" class="btn2" data-d="-5" style="min-width:56px">−5</button>
+      <input id="fMl" type="number" inputmode="decimal" min="0" max="500" step="1" required>
+      <button type="button" class="btn2" data-d="5" style="min-width:56px">+5</button>
+    </div>
+    <div class="chips" id="mlChips"></div>
+    <label>Nota (opcional)</label>
+    <input id="fNote" type="text" maxlength="200" placeholder="Ej: vomitó un poco, se durmió…">
+    <div class="muted small" id="fNext" style="margin-top:12px"></div>
+    <div class="grid2" style="margin-top:14px">
+      <button type="button" class="btn2" id="btnCancel">Cancelar</button>
+      <button type="submit" class="btn" id="btnSave">Guardar</button>
+    </div>
+    <button type="button" class="btn-danger" id="btnDel" style="width:100%;margin-top:10px" hidden>Eliminar toma</button>
+  </form>
+</div>
+
+<!-- ============ MODAL CONFIRMAR ============ -->
+<div class="modal" id="mConfirm">
+  <div class="sheet">
+    <h3>¿Eliminar esta toma?</h3>
+    <div class="muted" id="confirmTxt" style="margin:6px 0 14px"></div>
+    <div class="grid2">
+      <button class="btn2" id="cNo">Cancelar</button>
+      <button class="btn-danger" id="cYes">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = s => document.querySelector(s);
+  const $$ = s => [...document.querySelectorAll(s)];
+  const TYPES = { relactador:"Relactador", mamadera:"Mamadera", jeringa:"Jeringa" };
+  const TYPE_COLOR = t => `var(--c-${t})`;
+  const MIN = 60000, HOUR = 60*MIN, DAY = 24*HOUR;
+
+  // ---------- estado ----------
+  let feeds = [];                      // ordenadas por start desc
+  let settings = { intervalMin: 180, defaultMl: 60 };
+  let store = null;                    // adaptador de persistencia
+  let editingId = null, selType = null, histDays = 14;
+
+  // ---------- utilidades de fecha ----------
+  const pad = n => String(n).padStart(2,"0");
+  const hm = ts => { const d=new Date(ts); return pad(d.getHours())+":"+pad(d.getMinutes()); };
+  const dayKey = ts => { const d=new Date(ts); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); };
+  const startOfDay = ts => { const d=new Date(ts); d.setHours(0,0,0,0); return d.getTime(); };
+  const addDays = (ts,n) => { const d=new Date(ts); d.setDate(d.getDate()+n); return d.getTime(); };
+  const toLocalInput = ts => { const d=new Date(ts); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes()); };
+  const fromDateInput = v => { const [y,m,d]=v.split("-").map(Number); return new Date(y,m-1,d).getTime(); };
+  const DIAS = ["dom","lun","mar","mié","jue","vie","sáb"];
+  const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  const fmtDay = ts => { const d=new Date(ts); return DIAS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()]; };
+  const fmtDayLong = ts => {
+    const t=startOfDay(Date.now()), s=startOfDay(ts);
+    if (s===t) return "Hoy"; if (s===addDays(t,-1)) return "Ayer";
+    return fmtDay(ts);
+  };
+  const dur = ms => {
+    const m = Math.round(Math.abs(ms)/MIN), h=Math.floor(m/60), r=m%60;
+    return h ? (r ? `${h} h ${r} min` : `${h} h`) : `${r} min`;
+  };
+  const fmtMl = n => (Math.round(n*10)/10).toLocaleString("es-AR")+" ml";
+  const fmtNum = n => (Math.round(n*10)/10).toLocaleString("es-AR");
+
+  // ---------- persistencia ----------
+  function makeLocalStore(){
+    const K="tomas_v1", KS="tomas_settings_v1";
+    const read=(k,d)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } };
+    const write=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } };
+    let list = read(K,[]);
+    let onF=()=>{}, onS=()=>{};
+    // sincroniza si la app está abierta en otra pestaña
+    window.addEventListener("storage",e=>{ if(e.key===K){ list=read(K,[]); onF(list.slice()); } if(e.key===KS) onS(read(KS,null)); });
+    return {
+      kind:"local",
+      subscribe(f,s){ onF=f; onS=s; f(list.slice()); s(read(KS,null)); },
+      async save(id,data){ list=list.filter(x=>x.id!==id); list.push({id,...data}); if(!write(K,list)) throw new Error("No se pudo guardar"); onF(list.slice()); },
+      async remove(id){ list=list.filter(x=>x.id!==id); write(K,list); onF(list.slice()); },
+      async saveSettings(s){ if(!write(KS,s)) throw new Error("No se pudo guardar"); onS(s); },
+      exportAll(){ return { app:"tomas-bebe", version:1, exportedAt:new Date().toISOString(), settings:read(KS,null), feeds:list.slice() }; },
+      async importAll(obj, mode){
+        if(!obj || !Array.isArray(obj.feeds)) throw new Error("Archivo inválido");
+        const incoming = obj.feeds.filter(f=>f && typeof f.id==="string" && typeof f.start==="number");
+        if(mode==="replace") list = incoming;
+        else { const m=new Map(list.map(f=>[f.id,f])); incoming.forEach(f=>m.set(f.id,f)); list=[...m.values()]; }
+        if(!write(K,list)) throw new Error("No se pudo guardar");
+        if(obj.settings && mode==="replace"){ write(KS,obj.settings); onS(obj.settings); }
+        onF(list.slice()); return incoming.length;
+      }
+    };
+  }
+
+  function setFeeds(list){
+    feeds = list.filter(f=>f && typeof f.start==="number")
+      .map(f=>({ id:f.id, start:f.start, end: typeof f.end==="number"?f.end:null, active: f.active===true,
+        type: TYPES[f.type]?f.type:"mamadera", ml: Number(f.ml)||0, note: typeof f.note==="string"?f.note:"" }))
+      .sort((a,b)=>b.start-a.start);
+    renderAll();
+  }
+  function setSettings(s){
+    if (s && typeof s==="object"){
+      const iv=Number(s.intervalMin), ml=Number(s.defaultMl);
+      if (iv>0) settings.intervalMin=iv;
+      if (ml>=0) settings.defaultMl=ml;
+    }
+    renderSettings(); renderAll();
+  }
+
+  function banner(msg){ const b=$("#banner"); if(!msg){ b.hidden=true; return; } b.textContent=msg; b.hidden=false; }
+  function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),1800); }
+
+  async function init(){
+    store = makeLocalStore();
+    store.subscribe(setFeeds, setSettings);
+    let persisted = false;
+    try { if (navigator.storage && navigator.storage.persist) persisted = await navigator.storage.persist(); } catch(e){}
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+    $("#storeInfo").textContent = "Tus datos se guardan solo en este teléfono, no se envían a ningún servidor. " +
+      (standalone ? "" : "Instalá la app en la pantalla de inicio para que el sistema no los borre. ") +
+      "Hacé una copia de seguridad cada tanto.";
+    if (!standalone && !persisted && !localStorage.getItem("tomas_hide_install"))
+      banner("Tip: agregá la app a la pantalla de inicio (Compartir → Agregar a inicio) para usarla como app y proteger tus datos. (Tocá para ocultar)");
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+  }
+
+  // ---------- copia de seguridad ----------
+  $("#btnExport").onclick=()=>{
+    const data=JSON.stringify(store.exportAll(),null,1);
+    const blob=new Blob([data],{type:"application/json"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=`tomas-backup-${dayKey(Date.now())}.json`; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+    toast("Copia descargada");
+  };
+  $("#btnExportCsv").onclick=()=>{
+    const all=feeds.filter(f=>!f.active).slice().sort((a,b)=>a.start-b.start);
+    const csv=toCsv(all);
+    const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv"}));
+    a.download=`tomas-${dayKey(Date.now())}.csv`; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+  };
+  $("#fileImport").onchange=async e=>{
+    const file=e.target.files[0]; e.target.value=""; if(!file) return;
+    try{
+      const obj=JSON.parse(await file.text());
+      const n=await store.importAll(obj, $("#importMode").value);
+      toast(n===1?"1 toma importada":`${n} tomas importadas`);
+    }catch(err){ toast("No se pudo importar: "+(err.message||"archivo inválido")); }
+  };
+
+  // ---------- cálculo ----------
+  const sumMl = arr => arr.reduce((a,f)=>a+f.ml,0);
+  const inRange = (a,b) => feeds.filter(f=>f.start>=a && f.start<b);
+
+  // ---------- render inicio ----------
+  function renderNext(){
+    const last = feeds.find(f=>f.start<=Date.now()+5*MIN) || feeds[0];
+    const pill=$("#nextPill");
+    if(!last){ $("#nextTime").textContent="--:--"; $("#nextSub").textContent="Todavía no hay tomas registradas."; pill.innerHTML=""; return; }
+    const next = last.start + settings.intervalMin*MIN;
+    const diff = next - Date.now();
+    $("#nextTime").textContent = hm(next);
+    const sameDay = startOfDay(next)===startOfDay(Date.now());
+    $("#nextSub").textContent = `Última: ${fmtDayLong(last.start).toLowerCase()} ${hm(last.start)} · ${TYPES[last.type]} ${fmtMl(last.ml)} · cada ${dur(settings.intervalMin*MIN)}` + (sameDay?"":` · (${fmtDay(next)})`);
+    let cls="ok", txt;
+    if (diff>15*MIN){ txt="en "+dur(diff); }
+    else if (diff>=0){ cls="warn"; txt="en "+dur(diff); }
+    else { cls="bad"; txt="atrasada "+dur(diff); }
+    pill.innerHTML = `<span class="pill ${cls}">${txt}</span>`;
+  }
+
+  function feedRow(f, showDay){
+    const el=document.createElement("div"); el.className="feed"; el.style.cursor="pointer";
+    el.innerHTML=`<span class="dot" style="background:${TYPE_COLOR(f.type)}"></span>
+      <span class="t"></span><div class="m"><div class="ty"></div><div class="note"></div></div><span class="ml"></span>`;
+    el.querySelector(".t").textContent = hm(f.start);
+    const extra = f.active ? " · en curso" : (f.end && f.end>f.start ? ` · ${dur(f.end-f.start)}` : "");
+    el.querySelector(".ty").textContent = TYPES[f.type] + extra + (showDay?` · ${fmtDayLong(f.start)}`:"");
+    const n=el.querySelector(".note"); if(f.note) n.textContent=f.note; else n.remove();
+    el.querySelector(".ml").textContent = f.active ? "…" : fmtMl(f.ml);
+    el.onclick=()=>openForm(f);
+    return el;
+  }
+
+  function renderHome(){
+    const t0=startOfDay(Date.now()), now=Date.now();
+    const today=inRange(t0, addDays(t0,1)), h24=inRange(now-DAY, now+1);
+    $("#todayCount").textContent=today.length; $("#todayMl").textContent=fmtMl(sumMl(today));
+    $("#h24Count").textContent=h24.length; $("#h24Ml").textContent=fmtMl(sumMl(h24));
+    const r=$("#recent"); r.innerHTML="";
+    if(!feeds.length){ r.innerHTML='<div class="empty">Sin registros todavía</div>'; }
+    feeds.slice(0,5).forEach(f=>r.appendChild(feedRow(f,true)));
+    renderNext(); renderTimer();
+  }
+
+  // ---------- cronómetro ----------
+  const activeFeed = () => feeds.find(f=>f.active);
+  const clock = ms => { const s=Math.max(0,Math.floor(ms/1000)), h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60;
+    return (h?h+":"+pad(m):m)+":"+pad(x); };
+  function renderTimer(){
+    const a=activeFeed(), b=$("#btnTimer");
+    b.classList.toggle("running",!!a);
+    $("#btnCancelRun").hidden=!a; $("#btnNew").hidden=!!a;
+    if(a){
+      $("#tClock").textContent=clock(Date.now()-a.start);
+      $("#tLbl").textContent="Terminar toma";
+      $("#tSub").textContent=`Empezó a las ${hm(a.start)} · ${TYPES[a.type]}`;
+    } else {
+      $("#tClock").textContent="▶"; $("#tLbl").textContent="Empezar toma";
+      const last=feeds[0];
+      $("#tSub").textContent= last ? `Hace ${dur(Date.now()-(last.end||last.start))} de la última toma` : "Tocá al empezar a darle de comer";
+    }
+  }
+  let busy=false;
+  $("#btnTimer").onclick=async()=>{
+    if(busy) return;
+    const a=activeFeed();
+    if(a){ openForm(a,true); return; }
+    busy=true;
+    const now=Date.now(), id="f"+now.toString(36)+Math.random().toString(36).slice(2,7);
+    const last=feeds[0];
+    try{ await store.save(id,{ start:now, end:null, active:true, type: last?last.type:"mamadera", ml:0, note:"" }); toast("Toma iniciada "+hm(now)); }
+    catch(e){ toast("No se pudo iniciar"); }
+    finally{ busy=false; }
+  };
+  $("#btnCancelRun").onclick=()=>{
+    const a=activeFeed(); if(!a) return; editingId=a.id;
+    $("#confirmTxt").textContent=`Toma en curso desde las ${hm(a.start)}`; $("#mConfirm").classList.add("on");
+  };
+
+  // ---------- render historial ----------
+  function renderHistory(){
+    const h=$("#history"); h.innerHTML="";
+    if(!feeds.length){ h.innerHTML='<div class="card empty">Sin registros todavía</div>'; $("#btnMore").hidden=true; return; }
+    const groups=new Map();
+    feeds.forEach(f=>{ const k=dayKey(f.start); if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(f); });
+    const keys=[...groups.keys()];
+    keys.slice(0,histDays).forEach(k=>{
+      const arr=groups.get(k), card=document.createElement("div"); card.className="card";
+      const head=document.createElement("div"); head.className="dayhead";
+      head.innerHTML=`<b></b><span class="muted small"></span>`;
+      head.querySelector("b").textContent=fmtDayLong(arr[0].start);
+      head.querySelector("span").textContent=`${arr.length} tomas · ${fmtMl(sumMl(arr))}`;
+      card.appendChild(head);
+      arr.forEach(f=>card.appendChild(feedRow(f,false)));
+      h.appendChild(card);
+    });
+    $("#btnMore").hidden = keys.length<=histDays;
+  }
+
+  // ---------- render estadísticas ----------
+  function getRange(){
+    const v=$("#range").value, t0=startOfDay(Date.now()), tomorrow=addDays(t0,1);
+    const dow=(new Date(t0).getDay()+6)%7; // lunes=0
+    const d=new Date(t0);
+    switch(v){
+      case "today": return [t0,tomorrow];
+      case "yesterday": return [addDays(t0,-1),t0];
+      case "last7": return [addDays(t0,-6),tomorrow];
+      case "week": return [addDays(t0,-dow),addDays(t0,7-dow)];
+      case "lastweek": return [addDays(t0,-dow-7),addDays(t0,-dow)];
+      case "month": return [new Date(d.getFullYear(),d.getMonth(),1).getTime(), new Date(d.getFullYear(),d.getMonth()+1,1).getTime()];
+      case "lastmonth": return [new Date(d.getFullYear(),d.getMonth()-1,1).getTime(), new Date(d.getFullYear(),d.getMonth(),1).getTime()];
+      case "lastN": { const n=Math.max(1,Math.min(366,parseInt($("#nDays").value)||7)); return [addDays(t0,-(n-1)),tomorrow]; }
+      case "custom": {
+        const f=$("#from").value, to=$("#to").value;
+        if(!f||!to) return [addDays(t0,-6),tomorrow];
+        let a=fromDateInput(f), b=addDays(fromDateInput(to),1); if(b<=a) [a,b]=[addDays(b,-1),addDays(a,1)];
+        return [a,b];
+      }
+    }
+    return [addDays(t0,-6),tomorrow];
+  }
+
+  let lastStatsRows=[];
+  function renderStats(){
+    const [a,b]=getRange();
+    const list=inRange(a,b).filter(f=>!f.active).sort((x,y)=>x.start-y.start);
+    const durs=list.filter(f=>f.end&&f.end>f.start).map(f=>f.end-f.start);
+    $("#sDur").textContent=durs.length?dur(durs.reduce((x,y)=>x+y,0)/durs.length):"–";
+    $("#sMax").textContent=list.length?fmtMl(Math.max(...list.map(f=>f.ml))):"–";
+    // días transcurridos del período (no contar días futuros para los promedios)
+    const end=Math.min(b, addDays(startOfDay(Date.now()),1));
+    const days=[]; for(let t=a; t<end; t=addDays(t,1)) days.push(t);
+    const nDays=Math.max(1,days.length);
+    const total=sumMl(list);
+    const lastDay=addDays(b,-1);
+    $("#rangeLabel").textContent = (a===startOfDay(lastDay) ? fmtDay(a) : `${fmtDay(a)} → ${fmtDay(lastDay)}`) + ` · ${days.length} día${days.length===1?"":"s"} transcurrido${days.length===1?"":"s"}`;
+    $("#sCount").textContent=list.length;
+    $("#sMl").textContent=fmtMl(total);
+    $("#sMlDay").textContent=fmtMl(total/nDays);
+    $("#sCountDay").textContent=fmtNum(list.length/nDays);
+    $("#sMlFeed").textContent=list.length?fmtMl(total/list.length):"0 ml";
+    let gaps=[]; for(let i=1;i<list.length;i++) gaps.push(list[i].start-list[i-1].start);
+    gaps=gaps.filter(g=>g<12*HOUR);
+    $("#sGap").textContent=gaps.length?dur(gaps.reduce((x,y)=>x+y,0)/gaps.length):"–";
+
+    // por tipo
+    const bar=$("#typeBar"); bar.innerHTML="";
+    let rows='<tr><th>Tipo</th><th class="n">Tomas</th><th class="n">ml</th><th class="n">%ml</th></tr>';
+    Object.keys(TYPES).forEach(t=>{
+      const tl=list.filter(f=>f.type===t), ml=sumMl(tl), pct=total?ml/total*100:0;
+      if(pct>0){ const s=document.createElement("span"); s.style.cssText=`width:${pct}%;background:${TYPE_COLOR(t)}`; bar.appendChild(s); }
+      rows+=`<tr><td><span class="dot" style="display:inline-block;background:${TYPE_COLOR(t)};margin-right:6px"></span>${TYPES[t]}</td><td class="n">${tl.length}</td><td class="n">${fmtNum(ml)}</td><td class="n">${Math.round(pct)}%</td></tr>`;
+    });
+    $("#typeTable").innerHTML=rows;
+
+    // por día
+    const per=days.map(t=>{ const dl=list.filter(f=>f.start>=t && f.start<addDays(t,1)); return {t, n:dl.length, ml:sumMl(dl), dl}; });
+    lastStatsRows=list;
+    let dt='<tr><th>Día</th><th class="n">Tomas</th><th class="n">ml</th></tr>';
+    per.slice().reverse().forEach(p=>{ dt+=`<tr><td>${fmtDay(p.t)}</td><td class="n">${p.n}</td><td class="n">${fmtNum(p.ml)}</td></tr>`; });
+    $("#dayTable").innerHTML=dt;
+    renderChart(per);
+  }
+
+  function renderChart(per){
+    const c=$("#chart");
+    if(!per.length){ c.innerHTML='<div class="empty">Sin datos</div>'; return; }
+    const W=340, H=170, padL=34, padB=22, padT=10;
+    const max=Math.max(10,...per.map(p=>p.ml));
+    const step=niceStep(max/4), top=Math.ceil(max/step)*step;
+    const n=per.length, bw=(W-padL-4)/n, gap=Math.min(4,bw*0.25);
+    const y=v=>padT+(H-padT-padB)*(1-v/top);
+    let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="ml por día">`;
+    for(let v=0; v<=top+0.001; v+=step){
+      s+=`<line x1="${padL}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/>`;
+      s+=`<text x="${padL-4}" y="${y(v)+4}" font-size="10" text-anchor="end" fill="var(--muted)">${v}</text>`;
+    }
+    const avg=per.reduce((a,p)=>a+p.ml,0)/n;
+    const labelEvery=Math.ceil(n/8);
+    per.forEach((p,i)=>{
+      const x=padL+i*bw+gap/2, w=Math.max(1,bw-gap);
+      let yy=H-padB;
+      Object.keys(TYPES).forEach(t=>{
+        const ml=sumMl(p.dl.filter(f=>f.type===t)); if(!ml) return;
+        const h=(H-padT-padB)*ml/top; yy-=h;
+        s+=`<rect x="${x}" y="${yy}" width="${w}" height="${h}" fill="${TYPE_COLOR(t)}"><title>${fmtDay(p.t)}: ${TYPES[t]} ${fmtNum(ml)} ml</title></rect>`;
+      });
+      if(i%labelEvery===0 || i===n-1){
+        const d=new Date(p.t);
+        s+=`<text x="${x+w/2}" y="${H-6}" font-size="10" text-anchor="middle" fill="var(--muted)">${n<=7?DIAS[d.getDay()]:d.getDate()+"/"+(d.getMonth()+1)}</text>`;
+      }
+    });
+    if(n>1) s+=`<line x1="${padL}" x2="${W}" y1="${y(avg)}" y2="${y(avg)}" stroke="var(--text)" stroke-dasharray="4 3" stroke-width="1"/><text x="${W-2}" y="${y(avg)-4}" font-size="10" text-anchor="end" fill="var(--text)">prom. ${Math.round(avg)}</text>`;
+    s+="</svg>";
+    c.innerHTML=s;
+  }
+  function niceStep(x){ const p=Math.pow(10,Math.floor(Math.log10(x))); const m=x/p; return (m<=1?1:m<=2?2:m<=5?5:10)*p; }
+
+  function renderAll(){ renderHome(); renderHistory(); if($("#v-stats").classList.contains("on")) renderStats(); }
+
+  // ---------- ajustes ----------
+  const IV_PRESETS=[120,150,180,210,240];
+  function renderSettings(){
+    $("#ivH").value=Math.floor(settings.intervalMin/60); $("#ivM").value=settings.intervalMin%60;
+    $("#defMl").value=settings.defaultMl;
+    const ch=$("#ivChips"); ch.innerHTML="";
+    IV_PRESETS.forEach(m=>{ const b=document.createElement("button"); b.type="button"; b.textContent=dur(m*MIN);
+      if(m===settings.intervalMin) b.className="on";
+      b.onclick=()=>{ $("#ivH").value=Math.floor(m/60); $("#ivM").value=m%60; }; ch.appendChild(b); });
+  }
+  $("#btnSaveIv").onclick=async()=>{
+    const m=(parseInt($("#ivH").value)||0)*60+(parseInt($("#ivM").value)||0);
+    if(m<15||m>24*60){ toast("Intervalo inválido (15 min a 24 h)"); return; }
+    if(m===settings.intervalMin){ toast("Sin cambios"); return; }
+    try{ await store.saveSettings({...settings,intervalMin:m}); settings.intervalMin=m; renderSettings(); renderAll(); toast("Intervalo guardado"); }
+    catch(e){ toast("No se pudo guardar"); }
+  };
+  $("#btnSaveMl").onclick=async()=>{
+    const v=Number($("#defMl").value); if(!(v>=0&&v<=500)){ toast("Valor inválido"); return; }
+    if(v===settings.defaultMl){ toast("Sin cambios"); return; }
+    try{ await store.saveSettings({...settings,defaultMl:v}); settings.defaultMl=v; toast("Guardado"); }
+    catch(e){ toast("No se pudo guardar"); }
+  };
+
+  // ---------- formulario ----------
+  function setType(t){ selType=t; $$("#fType button").forEach(b=>b.classList.toggle("on",b.dataset.t===t)); }
+  function mlChips(){
+    const vals=new Set([30,45,60,75,90,120]); feeds.slice(0,10).forEach(f=>vals.add(f.ml));
+    const arr=[...vals].filter(v=>v>0).sort((a,b)=>a-b).slice(0,10);
+    const c=$("#mlChips"); c.innerHTML="";
+    arr.forEach(v=>{ const b=document.createElement("button"); b.type="button"; b.textContent=v; b.onclick=()=>{ $("#fMl").value=v; updNextPreview(); }; c.appendChild(b); });
+  }
+  function updNextPreview(){
+    const v=$("#fStart").value; if(!v){ $("#fNext").textContent=""; return; }
+    const t=new Date(v).getTime();
+    $("#fNext").textContent=`Próxima toma calculada: ${hm(t+settings.intervalMin*MIN)} (cada ${dur(settings.intervalMin*MIN)})`;
+  }
+  function openForm(f, finishing){
+    if(f && f.active) finishing=true;
+    editingId = f ? f.id : null;
+    $("#mTitle").textContent = finishing ? "Terminar toma" : (f ? "Editar toma" : "Nueva toma");
+    $("#fStart").value = toLocalInput(f ? f.start : Date.now());
+    $("#fEnd").value = finishing ? toLocalInput(Date.now()) : (f && f.end ? toLocalInput(f.end) : "");
+    const lastDone = feeds.find(x=>!x.active);
+    setType(f ? f.type : (feeds[0] ? feeds[0].type : "mamadera"));
+    $("#fMl").value = (f && !finishing) ? f.ml : (lastDone ? lastDone.ml : settings.defaultMl);
+    $("#fNote").value = f ? f.note : "";
+    $("#btnDel").hidden = !f;
+    mlChips(); updNextPreview();
+    $("#mFeed").classList.add("on");
+  }
+  const closeForm=()=>$("#mFeed").classList.remove("on");
+  $("#btnNew").onclick=()=>openForm(null);
+  $("#btnCancel").onclick=closeForm;
+  $("#mFeed").addEventListener("click",e=>{ if(e.target.id==="mFeed") closeForm(); });
+  $$("#fType button").forEach(b=>b.onclick=()=>setType(b.dataset.t));
+  $$("#startChips button").forEach(b=>b.onclick=()=>{ $("#fStart").value=toLocalInput(Date.now()+Number(b.dataset.min)*MIN); updNextPreview(); });
+  $$("[data-d]").forEach(b=>b.onclick=()=>{ const v=Math.max(0,(Number($("#fMl").value)||0)+Number(b.dataset.d)); $("#fMl").value=v; });
+  $("#fStart").addEventListener("input",updNextPreview);
+
+  let saving=false;
+  $("#feedForm").addEventListener("submit",async e=>{
+    e.preventDefault(); if(saving) return;
+    const start=new Date($("#fStart").value).getTime();
+    const ml=Number($("#fMl").value);
+    if(!start||isNaN(start)){ toast("Hora inválida"); return; }
+    if(start>Date.now()+60*MIN){ toast("La hora está en el futuro"); return; }
+    if(!(ml>=0&&ml<=500)){ toast("Cantidad inválida"); return; }
+    if(!selType){ toast("Elegí el tipo"); return; }
+    const id = editingId || ("f"+start.toString(36)+Math.random().toString(36).slice(2,7));
+    const endV=$("#fEnd").value, end=endV?new Date(endV).getTime():null;
+    if(end!==null && (isNaN(end)||end<start)){ toast("La hora de fin es anterior al inicio"); return; }
+    const data={ start, end, active:false, type:selType, ml, note:$("#fNote").value.trim().slice(0,200) };
+    const prev=feeds.find(f=>f.id===id);
+    if(prev && !prev.active && prev.start===data.start && prev.end===data.end && prev.type===data.type && prev.ml===data.ml && prev.note===data.note){ closeForm(); return; }
+    saving=true; $("#btnSave").disabled=true;
+    const wasActive = prev && prev.active;
+    try{ await store.save(id,data); closeForm(); toast(wasActive?`Toma terminada · próxima ${hm(start+settings.intervalMin*MIN)}`:(editingId?"Toma actualizada":"Toma registrada")); }
+    catch(err){ toast(err&&err.code==="quota_exceeded"?"Sin espacio para más registros":"No se pudo guardar"); }
+    finally{ saving=false; $("#btnSave").disabled=false; }
+  });
+
+  $("#btnDel").onclick=()=>{
+    const f=feeds.find(x=>x.id===editingId); if(!f) return;
+    $("#confirmTxt").textContent=`${fmtDayLong(f.start)} ${hm(f.start)} · ${TYPES[f.type]} · ${fmtMl(f.ml)}`;
+    $("#mConfirm").classList.add("on");
+  };
+  $("#cNo").onclick=()=>$("#mConfirm").classList.remove("on");
+  $("#cYes").onclick=async()=>{
+    const id=editingId; $("#mConfirm").classList.remove("on");
+    try{ await store.remove(id); closeForm(); toast("Toma eliminada"); } catch(e){ toast("No se pudo eliminar"); }
+  };
+
+  // ---------- navegación ----------
+  $$("nav button").forEach(b=>b.onclick=()=>{
+    $$("nav button").forEach(x=>x.classList.toggle("on",x===b));
+    $$(".view").forEach(v=>v.classList.toggle("on",v.id==="v-"+b.dataset.v));
+    if(b.dataset.v==="stats") renderStats();
+    window.scrollTo(0,0);
+  });
+  $("#btnMore").onclick=()=>{ histDays+=14; renderHistory(); };
+
+  // ---------- stats controles ----------
+  (function(){ const t=dayKey(Date.now()); $("#to").value=t; $("#from").value=dayKey(addDays(startOfDay(Date.now()),-13)); })();
+  $("#range").onchange=()=>{ $("#nWrap").hidden=$("#range").value!=="lastN"; $("#customWrap").hidden=$("#range").value!=="custom"; renderStats(); };
+  ["#nDays","#from","#to"].forEach(s=>$(s).addEventListener("change",renderStats));
+
+  function toCsv(rows){
+    return ["fecha,hora_inicio,hora_fin,duracion_min,tipo,ml,nota"].concat(rows.map(f=>`${dayKey(f.start)},${hm(f.start)},${f.end?hm(f.end):""},${f.end?Math.round((f.end-f.start)/MIN):""},${TYPES[f.type]},${f.ml},"${(f.note||"").replace(/"/g,'""')}"`)).join("\n");
+  }
+  $("#btnCsv").onclick=async()=>{
+    try{ await navigator.clipboard.writeText(toCsv(lastStatsRows)); toast("CSV copiado"); } catch(e){ toast("No se pudo copiar"); }
+  };
+  $("#banner").onclick=()=>{ try{ localStorage.setItem("tomas_hide_install","1"); }catch(e){} banner(null); };
+
+  // refresco del contador (solo render, sin escrituras)
+  setInterval(()=>{ renderNext(); }, 30000);
+  setInterval(()=>{ if(activeFeed()) renderTimer(); }, 1000);
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) renderAll(); });
+
+  renderSettings(); renderAll();
+  init();
+})();
+</script>
+</body>
+</html>
