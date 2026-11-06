@@ -1,6 +1,6 @@
 // Service worker: permite usar la app sin conexión.
 // Subí el número de versión cada vez que cambies algún archivo para que los usuarios reciban la actualización.
-const CACHE = "tomas-v1";
+const CACHE = "alimentacion-v1";
 const ASSETS = [
   "./",
   "./index.html",

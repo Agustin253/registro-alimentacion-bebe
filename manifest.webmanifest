@@ -1,6 +1,6 @@
 {
-  "name": "Registro de tomas",
-  "short_name": "Tomas",
+  "name": "Registro de alimentación",
+  "short_name": "Alimentación",
   "description": "Registrá las tomas de tu bebé: hora, tipo, ml, próxima toma y totales.",
   "lang": "es",
   "start_url": "./",

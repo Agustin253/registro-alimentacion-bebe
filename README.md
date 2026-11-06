@@ -1,8 +1,8 @@
-# 🍼 Registro de tomas
+# 🍼 Registro de alimentación
 
 App web gratuita y de código abierto para registrar las tomas de alimentación de un bebé desde el celular.
 
-**[➡️ Abrir la app](https://TU-USUARIO.github.io/tomas-bebe/)**
+**[➡️ Abrir la app](https://TU-USUARIO.github.io/registro-alimentacion/)**
 
 ## Qué hace
 
@@ -44,7 +44,7 @@ python3 -m http.server 8000
 # abrir http://localhost:8000
 ```
 
-Cuando cambies algún archivo, subí la versión de `CACHE` en `sw.js` (`tomas-v1` → `tomas-v2`) para que los usuarios reciban la actualización.
+Cuando cambies algún archivo, subí la versión de `CACHE` en `sw.js` (`alimentacion-v1` → `alimentacion-v2`) para que los usuarios reciban la actualización.
 
 ### Publicar en GitHub Pages
 
