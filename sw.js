@@ -1,9 +1,11 @@
 // Service worker: permite usar la app sin conexión.
-// Subí el número de versión cada vez que cambies algún archivo para que los usuarios reciban la actualización.
-const CACHE = "alimentacion-v1";
+// Subí el número de versión cada vez que cambies algún archivo para forzar la actualización.
+const CACHE = "alimentacion-v2";
 const ASSETS = [
   "./",
   "./index.html",
+  "./config.js",
+  "./vendor/supabase.js",
   "./manifest.webmanifest",
   "./icons/icon.svg",
   "./icons/icon-180.png",
@@ -24,19 +26,16 @@ self.addEventListener("activate", e => {
   );
 });
 
-// Red primero para la página (así se ven las actualizaciones), caché como respaldo offline.
+// Red primero (así siempre se ve la última versión publicada) y caché como respaldo sin conexión.
+// Sólo archivos propios: las llamadas a Supabase van directo a la red.
 self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
-  if (req.mode === "navigate") {
-    e.respondWith(
-      fetch(req).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put("./index.html", copy));
-        return res;
-      }).catch(() => caches.match("./index.html"))
-    );
-    return;
-  }
-  e.respondWith(caches.match(req).then(hit => hit || fetch(req)));
+  const key = req.mode === "navigate" ? "./index.html" : req;
+  e.respondWith(
+    fetch(req).then(res => {
+      if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(key, copy)); }
+      return res;
+    }).catch(() => caches.match(key, { ignoreSearch: true }))
+  );
 });

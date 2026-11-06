@@ -108,7 +108,10 @@
 
 <!-- ============ INICIO ============ -->
 <section id="v-home" class="view on">
-  <h1>Registro Alimentación Bebé</h1>
+  <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
+    <h1 style="margin:4px 2px">Registro Alimentación Bebé</h1>
+    <span id="syncPill" class="pill ok" hidden></span>
+  </div>
 
   <div class="card" id="nextCard">
     <h2>Próxima toma</h2>
@@ -211,6 +214,49 @@
 <!-- ============ AJUSTES ============ -->
 <section id="v-set" class="view">
   <h1>Ajustes</h1>
+  <div class="card" id="famCard" hidden>
+    <h2>Compartir con tu familia</h2>
+
+    <div id="famOut">
+      <div class="small muted">Creá una cuenta para que las tomas se sincronicen entre varios teléfonos (por ejemplo, mamá y papá) y se vean al instante en los dos.</div>
+      <label>Mail</label><input id="authEmail" type="email" autocomplete="email" inputmode="email">
+      <label>Contraseña</label><input id="authPass" type="password" autocomplete="current-password" minlength="6">
+      <div class="grid2" style="margin-top:12px">
+        <button class="btn2" id="btnSignup">Crear cuenta</button>
+        <button class="btn" id="btnLogin" style="padding:10px 12px;font-size:16px">Entrar</button>
+      </div>
+      <button class="linkBtn" id="btnForgot" style="width:100%">Olvidé mi contraseña</button>
+    </div>
+
+    <div id="famNoHh" hidden>
+      <div class="small muted">Sesión iniciada como <b id="famEmail1"></b>.</div>
+      <label>Crear un grupo nuevo (nombre del bebé)</label>
+      <div class="row"><input id="hhName" maxlength="60" placeholder="Ej: Martina"><button class="btn2" id="btnCreateHh" style="flex:none">Crear</button></div>
+      <label>…o unirme con un código</label>
+      <div class="row"><input id="hhCode" maxlength="12" placeholder="ABCD-2345" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:.1em"><button class="btn2" id="btnJoinHh" style="flex:none">Unirme</button></div>
+      <label id="upWrap" style="display:flex;gap:8px;align-items:center;color:var(--text);margin-top:14px">
+        <input type="checkbox" id="upLocal" checked style="width:auto;flex:none"> <span>Subir al grupo las <span id="upCount"></span> registradas en este teléfono</span>
+      </label>
+      <button class="linkBtn" id="btnLogout1" style="width:100%;margin-top:6px">Cerrar sesión</button>
+    </div>
+
+    <div id="famIn" hidden>
+      <div class="row" style="justify-content:space-between"><b id="famName" style="font-size:18px"></b><span class="small muted" id="famMembers"></span></div>
+      <label>Código para invitar</label>
+      <div class="row">
+        <div id="famCode" style="flex:1;font-size:26px;font-weight:800;letter-spacing:.12em;font-variant-numeric:tabular-nums"></div>
+        <button class="btn2" id="btnCopyCode" style="flex:none">Invitar</button>
+      </div>
+      <div class="small muted" style="margin-top:6px">La otra persona instala la app, crea su cuenta y elige “unirme con un código”.</div>
+      <div class="grid2" style="margin-top:14px">
+        <button class="btn2" id="btnNewCode">Código nuevo</button>
+        <button class="btn-danger" id="btnLeaveHh">Salir del grupo</button>
+      </div>
+      <div class="small muted" style="margin-top:12px">Sesión: <span id="famEmail2"></span></div>
+      <button class="linkBtn" id="btnLogout2" style="width:100%">Cerrar sesión</button>
+    </div>
+  </div>
+
   <div class="card">
     <h2>Intervalo entre tomas</h2>
     <div class="muted small">La próxima toma se calcula como: hora de inicio de la última toma + este intervalo.</div>
@@ -302,7 +348,29 @@
   </div>
 </div>
 
+<!-- ============ DIÁLOGO GENÉRICO ============ -->
+<div class="modal" id="mAsk">
+  <div class="sheet">
+    <h3 id="askTitle"></h3>
+    <div class="muted" id="askText" style="margin:6px 0 14px"></div>
+    <div class="grid2">
+      <button class="btn2" id="askNo">Cancelar</button>
+      <button class="btn" id="askYes" style="padding:10px 12px;font-size:16px">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ NUEVA CONTRASEÑA ============ -->
+<div class="modal" id="mPass">
+  <div class="sheet">
+    <h3>Elegí una contraseña nueva</h3>
+    <label>Contraseña nueva</label><input id="newPass" type="password" autocomplete="new-password" minlength="6">
+    <button class="btn" id="btnNewPass" style="margin-top:14px">Guardar</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
+<script src="config.js"></script>
 
 <script>
 (() => {
@@ -343,29 +411,164 @@
   const fmtNum = n => (Math.round(n*10)/10).toLocaleString("es-AR");
 
   // ---------- persistencia ----------
-  function makeLocalStore(){
-    const K="tomas_v1", KS="tomas_settings_v1";
-    const read=(k,d)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } };
-    const write=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } };
-    let list = read(K,[]);
-    let onF=()=>{}, onS=()=>{};
-    // sincroniza si la app está abierta en otra pestaña
-    window.addEventListener("storage",e=>{ if(e.key===K){ list=read(K,[]); onF(list.slice()); } if(e.key===KS) onS(read(KS,null)); });
+  // Dos modos:
+  //  - "local": todo queda en este teléfono (sin cuenta).
+  //  - "cloud": grupo familiar en Supabase. La app escribe primero en una copia local
+  //    y una cola de cambios pendientes se sube cuando hay conexión. Los cambios de
+  //    los demás integrantes llegan en tiempo real.
+  const LS = {
+    read(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+    write(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } },
+    del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+  };
+  const K_LOCAL="tomas_v1", K_LOCAL_SET="tomas_settings_v1", K_HID="rab_household";
+  const kCache = hid => "rab_cloud_"+hid, kSet = hid => "rab_cloudset_"+hid, kPend = hid => "rab_pending_"+hid;
+
+  const CFG = window.RAB_CONFIG || {};
+  const CLOUD_ENABLED = !!(CFG.supabaseUrl && CFG.supabaseAnonKey);
+
+  const rowToFeed = r => ({ id:r.id, start:Number(r.start_at), end: r.end_at==null?null:Number(r.end_at), active:!!r.active,
+    type:r.type, ml:Number(r.ml)||0, note:r.note||"" });
+  const feedToRow = (f,hid) => ({ id:f.id, household_id:hid, start_at:Math.round(f.start), end_at: f.end==null?null:Math.round(f.end),
+    active:!!f.active, type:f.type, ml:Number(f.ml)||0, note:(f.note||"").slice(0,200) });
+
+  function makeStore(){
+    let mode="local", hid=null, household=null, sb=null, channel=null;
+    let list=LS.read(K_LOCAL,[]), pending=[], flushing=false, retryTimer=null, lastError=null;
+    let onF=()=>{}, onS=()=>{}, onStatus=()=>{};
+
+    const emit = () => onF(list.slice());
+    const persist = () => LS.write(mode==="cloud"?kCache(hid):K_LOCAL, list);
+    const persistPending = () => { if(mode==="cloud") LS.write(kPend(hid), pending); };
+    const status = () => onStatus({ mode, household, pending: pending.length, online: navigator.onLine, error: lastError });
+
+    function applyLocal(id, data){ list=list.filter(x=>x.id!==id); if(data) list.push({id,...data}); }
+    function enqueue(op){
+      // un solo cambio pendiente por toma: el último gana
+      if(op.op!=="settings") pending=pending.filter(p=>p.id!==op.id); else pending=pending.filter(p=>p.op!=="settings");
+      pending.push(op); persistPending(); status(); flush();
+    }
+    const isPermanent = e => e && typeof e.code==="string" && /^(22|23|42|P0)/.test(e.code);
+
+    async function flush(){
+      if(mode!=="cloud" || flushing || !pending.length || !navigator.onLine) { status(); return; }
+      flushing=true; clearTimeout(retryTimer);
+      const myHid = hid;
+      try{
+        while(pending.length && mode==="cloud" && hid===myHid){
+          const op=pending[0]; let res;
+          if(op.op==="upsert") res = await sb.from("feeds").upsert(feedToRow(op.data,hid));
+          else if(op.op==="delete") res = await sb.from("feeds").delete().eq("id",op.id);
+          else res = await sb.from("households").update({ interval_min:op.data.intervalMin, default_ml:op.data.defaultMl }).eq("id",hid);
+          if(res.error){
+            if(isPermanent(res.error)){ console.warn("Cambio descartado", op, res.error); pending.shift(); persistPending(); lastError="Un cambio no se pudo guardar y se descartó."; continue; }
+            throw res.error;
+          }
+          pending.shift(); persistPending(); lastError=null;
+        }
+      }catch(e){
+        lastError = navigator.onLine ? "No se pudo sincronizar, se reintentará." : null;
+        retryTimer=setTimeout(flush, 20000);
+      }finally{ flushing=false; status(); }
+    }
+
+    // trae todo del servidor y re-aplica los cambios locales que todavía no subieron
+    async function refresh(){
+      if(mode!=="cloud" || !navigator.onLine) return;
+      const myHid=hid;
+      try{
+        const hq = await sb.from("households").select("*").eq("id",hid).maybeSingle();
+        if(hq.error) throw hq.error;
+        if(!hq.data){
+          // confirmamos con una segunda consulta antes de borrar la copia local
+          const chk = await sb.from("household_members").select("household_id").eq("household_id",hid);
+          if(!chk.error && Array.isArray(chk.data) && chk.data.length===0) await leaveLocal("Ya no formás parte de este grupo.", true);
+          return;
+        }
+        household=hq.data; LS.write(kSet(hid), household); onS({ intervalMin:household.interval_min, defaultMl:Number(household.default_ml) });
+        const mq = await sb.from("household_members").select("user_id", { count:"exact", head:true }).eq("household_id",hid);
+        if(!mq.error) household={...household, members: mq.count};
+        let rows=[], from=0;
+        for(;;){
+          const r = await sb.from("feeds").select("*").eq("household_id",hid).order("start_at",{ascending:false}).range(from, from+999);
+          if(r.error) throw r.error;
+          rows=rows.concat(r.data); if(r.data.length<1000) break; from+=1000;
+        }
+        if(hid!==myHid) return;
+        list = rows.map(rowToFeed);
+        pending.forEach(p=>{ if(p.op==="upsert") applyLocal(p.id,p.data); else if(p.op==="delete") applyLocal(p.id,null); });
+        persist(); emit(); lastError=null; status();
+      }catch(e){ console.warn("refresh", e); status(); }
+    }
+
+    function subscribeRealtime(){
+      if(channel){ sb.removeChannel(channel); channel=null; }
+      const myHid=hid;
+      const hasPending = id => pending.some(p=>p.id===id);
+      channel = sb.channel("hh-"+hid)
+        .on("postgres_changes",{ event:"INSERT", schema:"public", table:"feeds", filter:"household_id=eq."+hid }, p=>{ if(hid!==myHid||hasPending(p.new.id)) return; applyLocal(p.new.id, rowToFeed(p.new)); persist(); emit(); })
+        .on("postgres_changes",{ event:"UPDATE", schema:"public", table:"feeds", filter:"household_id=eq."+hid }, p=>{ if(hid!==myHid||hasPending(p.new.id)) return; applyLocal(p.new.id, rowToFeed(p.new)); persist(); emit(); })
+        .on("postgres_changes",{ event:"DELETE", schema:"public", table:"feeds" }, p=>{ const id=p.old&&p.old.id; if(hid!==myHid||!id||hasPending(id)||!list.some(f=>f.id===id)) return; applyLocal(id,null); persist(); emit(); })
+        .on("postgres_changes",{ event:"UPDATE", schema:"public", table:"households", filter:"id=eq."+hid }, p=>{ if(hid!==myHid) return; household={...household,...p.new}; LS.write(kSet(hid),household);
+            if(!pending.some(x=>x.op==="settings")) onS({ intervalMin:p.new.interval_min, defaultMl:Number(p.new.default_ml) }); status(); })
+        .subscribe(st=>{ if(st==="SUBSCRIBED") refresh(); });
+    }
+
+    async function enterCloud(h){
+      mode="cloud"; hid=h.id; household=h; LS.write(K_HID, hid);
+      list = LS.read(kCache(hid), []); pending = LS.read(kPend(hid), []);
+      const cs = LS.read(kSet(hid), h); onS({ intervalMin:cs.interval_min, defaultMl:Number(cs.default_ml) });
+      emit(); status(); subscribeRealtime(); await refresh(); flush();
+    }
+    // wipe=true: borra la copia local del grupo (al salir del grupo o cerrar sesión a propósito)
+    async function leaveLocal(msg, wipe){
+      if(channel && sb){ sb.removeChannel(channel); channel=null; }
+      if(hid && wipe){ LS.del(kCache(hid)); LS.del(kPend(hid)); LS.del(kSet(hid)); }
+      if(wipe) LS.del(K_HID);
+      mode="local"; hid=null; household=null; pending=[];
+      list=LS.read(K_LOCAL,[]); onS(LS.read(K_LOCAL_SET,null)); emit(); status();
+      if(msg) toast(msg);
+    }
+
+    window.addEventListener("online", ()=>{ refresh(); flush(); });
+    window.addEventListener("offline", status);
+    document.addEventListener("visibilitychange", ()=>{ if(!document.hidden){ refresh(); flush(); } });
+    window.addEventListener("storage", e=>{ if(mode==="local" && e.key===K_LOCAL){ list=LS.read(K_LOCAL,[]); emit(); } });
+
     return {
-      kind:"local",
-      subscribe(f,s){ onF=f; onS=s; f(list.slice()); s(read(KS,null)); },
-      async save(id,data){ list=list.filter(x=>x.id!==id); list.push({id,...data}); if(!write(K,list)) throw new Error("No se pudo guardar"); onF(list.slice()); },
-      async remove(id){ list=list.filter(x=>x.id!==id); write(K,list); onF(list.slice()); },
-      async saveSettings(s){ if(!write(KS,s)) throw new Error("No se pudo guardar"); onS(s); },
-      exportAll(){ return { app:"registro-alimentacion-bebe", version:1, exportedAt:new Date().toISOString(), settings:read(KS,null), feeds:list.slice() }; },
-      async importAll(obj, mode){
+      get mode(){ return mode; }, get household(){ return household; }, get client(){ return sb; },
+      subscribe(f,s,st){ onF=f; onS=s; onStatus=st||onStatus; emit(); onS(LS.read(K_LOCAL_SET,null)); status(); },
+      setClient(c){ sb=c; },
+      enterCloud, leaveLocal, refresh,
+      localFeedCount(){ return LS.read(K_LOCAL,[]).length; },
+      async save(id,data){
+        applyLocal(id,data);
+        if(!persist()) throw new Error("No se pudo guardar");
+        emit(); if(mode==="cloud") enqueue({ op:"upsert", id, data:{id,...data} });
+      },
+      async remove(id){ applyLocal(id,null); persist(); emit(); if(mode==="cloud") enqueue({ op:"delete", id }); },
+      async saveSettings(s){
+        if(mode==="cloud"){ household={...household, interval_min:s.intervalMin, default_ml:s.defaultMl}; LS.write(kSet(hid),household); onS(s); enqueue({ op:"settings", data:s }); }
+        else { if(!LS.write(K_LOCAL_SET,s)) throw new Error("No se pudo guardar"); onS(s); }
+      },
+      uploadLocalFeeds(){
+        const loc=LS.read(K_LOCAL,[]).filter(f=>f && typeof f.id==="string" && typeof f.start==="number");
+        loc.forEach(f=>{ applyLocal(f.id,f); pending=pending.filter(p=>p.id!==f.id); pending.push({ op:"upsert", id:f.id, data:f }); });
+        persist(); persistPending(); emit(); flush(); return loc.length;
+      },
+      exportAll(){ return { app:"registro-alimentacion-bebe", version:1, exportedAt:new Date().toISOString(), settings:{...settings}, feeds:list.slice() }; },
+      async importAll(obj, how){
         if(!obj || !Array.isArray(obj.feeds)) throw new Error("Archivo inválido");
-        const incoming = obj.feeds.filter(f=>f && typeof f.id==="string" && typeof f.start==="number");
-        if(mode==="replace") list = incoming;
-        else { const m=new Map(list.map(f=>[f.id,f])); incoming.forEach(f=>m.set(f.id,f)); list=[...m.values()]; }
-        if(!write(K,list)) throw new Error("No se pudo guardar");
-        if(obj.settings && mode==="replace"){ write(KS,obj.settings); onS(obj.settings); }
-        onF(list.slice()); return incoming.length;
+        const incoming = obj.feeds.filter(f=>f && typeof f.id==="string" && typeof f.start==="number" && TYPES[f.type]);
+        if(how==="replace"){
+          const keep=new Set(incoming.map(f=>f.id));
+          list.filter(f=>!keep.has(f.id)).forEach(f=>{ applyLocal(f.id,null); if(mode==="cloud") pending.push({op:"delete",id:f.id}); });
+        }
+        incoming.forEach(f=>{ applyLocal(f.id,f); if(mode==="cloud"){ pending=pending.filter(p=>p.id!==f.id); pending.push({op:"upsert",id:f.id,data:f}); } });
+        if(!persist()) throw new Error("No se pudo guardar");
+        persistPending(); emit();
+        if(obj.settings && how==="replace") await this.saveSettings({ intervalMin:Number(obj.settings.intervalMin)||settings.intervalMin, defaultMl:Number(obj.settings.defaultMl)>=0?Number(obj.settings.defaultMl):settings.defaultMl });
+        flush(); return incoming.length;
       }
     };
   }
@@ -387,20 +590,182 @@
   }
 
   function banner(msg){ const b=$("#banner"); if(!msg){ b.hidden=true; return; } b.textContent=msg; b.hidden=false; }
-  function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),1800); }
+  function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),2200); }
+
+  // ---------- estado de sincronización ----------
+  let syncState={ mode:"local", pending:0, online:true };
+  function renderSync(st){
+    if(st) syncState=st;
+    const s=syncState, el=$("#syncPill");
+    if(s.mode!=="cloud"){ el.hidden=true; }
+    else {
+      el.hidden=false;
+      let cls="ok", txt="Sincronizado";
+      if(!s.online){ cls="warn"; txt = s.pending? `Sin conexión · ${s.pending} sin subir` : "Sin conexión"; }
+      else if(s.error && s.pending){ cls="warn"; txt=`${s.pending} sin subir · reintentando`; }
+      else if(s.error){ cls="bad"; txt="Revisá la sincronización"; }
+      else if(s.pending){ cls="warn"; txt=`Subiendo ${s.pending}…`; }
+      el.className="pill "+cls; el.textContent=txt; el.title=s.error||"";
+    }
+    renderFamily();
+    $("#storeInfo").textContent = s.mode==="cloud"
+      ? "Tus datos se guardan en la nube y se comparten con tu grupo familiar. Si no hay conexión se guardan en el teléfono y se suben solos después."
+      : "Tus datos se guardan solo en este teléfono, no se envían a ningún servidor. Hacé una copia de seguridad cada tanto.";
+  }
+
+  // ---------- cuenta y grupo familiar ----------
+  let authUser=null, familyBusy=false;
+  const errMsg = e => {
+    const m=(e&&(e.message||e.error_description))||"";
+    if(/Invalid login credentials/i.test(m)) return "Mail o contraseña incorrectos.";
+    if(/Email not confirmed/i.test(m)) return "Tenés que confirmar tu mail primero (revisá tu correo).";
+    if(/already registered/i.test(m)) return "Ese mail ya tiene cuenta. Iniciá sesión.";
+    if(/Password should be/i.test(m)) return "La contraseña tiene que tener al menos 6 caracteres.";
+    if(/invalid_code/i.test(m)) return "Código inválido. Revisalo y probá de nuevo.";
+    if(/rate limit/i.test(m)) return "Demasiados intentos. Esperá unos minutos.";
+    if(/fetch|network/i.test(m)) return "Sin conexión. Probá de nuevo cuando tengas internet.";
+    return m || "Ocurrió un error.";
+  };
+  function showFam(id){ ["famOut","famNoHh","famIn"].forEach(x=>$("#"+x).hidden = x!==id); }
+  function renderFamily(){
+    if(!CLOUD_ENABLED){ $("#famCard").hidden=true; return; }
+    $("#famCard").hidden=false;
+    if(!authUser){ showFam("famOut"); return; }
+    if(store.mode!=="cloud"){
+      showFam("famNoHh"); $("#famEmail1").textContent=authUser.email||"";
+      const n=store.localFeedCount();
+      $("#upWrap").hidden = n===0; $("#upCount").textContent = n===1?"1 toma":`${n} tomas`;
+      return;
+    }
+    showFam("famIn");
+    const h=store.household||{};
+    $("#famName").textContent=h.name||"";
+    $("#famCode").textContent=(h.invite_code||"").replace(/(.{4})(.{4})/,"$1-$2");
+    $("#famMembers").textContent = h.members ? (h.members===1?"1 integrante":`${h.members} integrantes`) : "";
+    $("#famEmail2").textContent=authUser.email||"";
+  }
+  async function withBusy(btn, fn){
+    if(familyBusy) return; familyBusy=true; const t=btn.textContent; btn.disabled=true; btn.textContent="…";
+    try{ await fn(); } catch(e){ toast(errMsg(e)); } finally{ familyBusy=false; btn.disabled=false; btn.textContent=t; }
+  }
+  async function loadMembership(){
+    const sb=store.client;
+    const r = await sb.from("household_members").select("household_id, households(*)").eq("user_id", authUser.id);
+    if(r.error) throw r.error;
+    const hs = (r.data||[]).map(x=>x.households).filter(Boolean);
+    if(!hs.length){ if(store.mode==="cloud") await store.leaveLocal(null, true); renderFamily(); return; }
+    const pref = LS.read(K_HID,null);
+    const h = hs.find(x=>x.id===pref) || hs[0];
+    if(store.mode!=="cloud" || store.household.id!==h.id) await store.enterCloud(h);
+    renderFamily();
+  }
+  function credentials(){
+    const email=$("#authEmail").value.trim(), password=$("#authPass").value;
+    if(!/^\S+@\S+\.\S+$/.test(email)) throw new Error("Ingresá un mail válido.");
+    if(password.length<6) throw new Error("La contraseña tiene que tener al menos 6 caracteres.");
+    return { email, password };
+  }
+  function wireFamily(){
+    const sb=store.client;
+    $("#btnLogin").onclick=e=>withBusy(e.target, async()=>{
+      const { error } = await sb.auth.signInWithPassword(credentials()); if(error) throw error;
+      $("#authPass").value=""; toast("Sesión iniciada");
+    });
+    $("#btnSignup").onclick=e=>withBusy(e.target, async()=>{
+      const c=credentials();
+      const { data, error } = await sb.auth.signUp({ ...c, options:{ emailRedirectTo: location.origin+location.pathname } });
+      if(error) throw error;
+      if(!data.session) ask("Revisá tu mail", `Te mandamos un mail a ${c.email} para confirmar la cuenta. Confirmala y después volvé acá e iniciá sesión.`, null, "Entendido");
+      else toast("Cuenta creada");
+    });
+    $("#btnForgot").onclick=e=>withBusy(e.target, async()=>{
+      const email=$("#authEmail").value.trim(); if(!/^\S+@\S+\.\S+$/.test(email)) throw new Error("Escribí tu mail arriba y tocá de nuevo.");
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin+location.pathname }); if(error) throw error;
+      ask("Revisá tu mail", `Si ${email} tiene cuenta, te llega un link para elegir una contraseña nueva.`, null, "Entendido");
+    });
+    $("#btnCreateHh").onclick=e=>withBusy(e.target, async()=>{
+      const { data, error } = await sb.rpc("create_household", { p_name: $("#hhName").value.trim() || "Mi bebé" }); if(error) throw error;
+      const up = $("#upLocal").checked;
+      await store.enterCloud(data);
+      if(up){ const n=store.uploadLocalFeeds(); if(n) toast(`Subiendo ${n} tomas…`); }
+      renderFamily(); toast("Grupo creado. Compartí el código.");
+    });
+    $("#btnJoinHh").onclick=e=>withBusy(e.target, async()=>{
+      const code=$("#hhCode").value.trim(); if(code.replace(/[^A-Za-z0-9]/g,"").length<8) throw new Error("El código tiene 8 caracteres.");
+      const { data, error } = await sb.rpc("join_household", { p_code: code }); if(error) throw error;
+      const up = $("#upLocal").checked;
+      await store.enterCloud(data);
+      if(up){ const n=store.uploadLocalFeeds(); if(n) toast(`Subiendo ${n} tomas…`); }
+      renderFamily(); toast(`Te uniste a "${data.name}"`);
+    });
+    $("#btnCopyCode").onclick=async()=>{
+      const h=store.household; if(!h) return;
+      const msg=`Unite a "${h.name}" en Registro Alimentación Bebé: ${location.origin+location.pathname}\nCódigo: ${h.invite_code}`;
+      try{ if(navigator.share){ await navigator.share({ title:"Registro Alimentación Bebé", text:msg }); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
+      try{ await navigator.clipboard.writeText(msg); toast("Invitación copiada"); }catch(e){ toast("Código: "+h.invite_code); }
+    };
+    $("#btnNewCode").onclick=e=>ask("¿Generar un código nuevo?","El código actual va a dejar de funcionar. Quienes ya están en el grupo siguen adentro.", ()=>withBusy(e.target, async()=>{
+      const { data, error } = await sb.rpc("regenerate_invite_code", { p_household: store.household.id }); if(error) throw error;
+      store.household.invite_code=data; renderFamily(); toast("Código nuevo generado");
+    }), "Generar");
+    $("#btnLeaveHh").onclick=e=>ask("¿Salir del grupo?", (store.household&&store.household.members>1)
+        ? "Vas a dejar de ver y cargar las tomas del grupo en este teléfono. Los demás integrantes las siguen teniendo."
+        : "Sos el único integrante: al salir se borran del servidor todas las tomas del grupo. Descargá una copia antes si las querés guardar.",
+      ()=>withBusy(e.target, async()=>{
+        const { error } = await sb.rpc("leave_household", { p_household: store.household.id }); if(error) throw error;
+        await store.leaveLocal("Saliste del grupo", true); renderFamily();
+      }), "Salir");
+    const logout = e => ask("¿Cerrar sesión?", "Las tomas del grupo dejan de verse en este teléfono hasta que vuelvas a entrar." + (syncState.pending?` Hay ${syncState.pending} cambios sin subir que se van a perder.`:""),
+      ()=>withBusy(e.target, async()=>{ await store.leaveLocal(null, true); await sb.auth.signOut(); }), "Cerrar sesión");
+    $("#btnLogout1").onclick=logout; $("#btnLogout2").onclick=logout;
+    $("#btnNewPass").onclick=e=>withBusy(e.target, async()=>{
+      const p=$("#newPass").value; if(p.length<6) throw new Error("Mínimo 6 caracteres.");
+      const { error } = await sb.auth.updateUser({ password:p }); if(error) throw error;
+      $("#mPass").classList.remove("on"); $("#newPass").value=""; toast("Contraseña actualizada");
+    });
+
+    sb.auth.onAuthStateChange((event, session)=>{
+      const u = session && session.user || null;
+      const changed = (u&&u.id) !== (authUser&&authUser.id);
+      authUser = u;
+      if(event==="PASSWORD_RECOVERY") $("#mPass").classList.add("on");
+      if(!u){ if(store.mode==="cloud") store.leaveLocal(null, false); renderFamily(); return; }
+      if(changed || event==="SIGNED_IN") setTimeout(()=>loadMembership().catch(e=>{ console.warn(e); renderFamily(); }),0);
+      else renderFamily();
+    });
+  }
+  function loadScript(src){ return new Promise((ok,ko)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=ko; document.head.appendChild(s); }); }
+
+  // ---------- diálogo genérico ----------
+  let askCb=null;
+  function ask(title, text, onYes, yesLabel){
+    $("#askTitle").textContent=title; $("#askText").textContent=text;
+    $("#askYes").textContent=yesLabel||"Aceptar"; $("#askNo").hidden=!onYes;
+    askCb=onYes; $("#mAsk").classList.add("on");
+  }
+  $("#askNo").onclick=()=>{ $("#mAsk").classList.remove("on"); askCb=null; };
+  $("#askYes").onclick=()=>{ $("#mAsk").classList.remove("on"); const cb=askCb; askCb=null; if(cb) cb(); };
 
   async function init(){
-    store = makeLocalStore();
-    store.subscribe(setFeeds, setSettings);
+    store = makeStore();
+    store.subscribe(setFeeds, setSettings, renderSync);
     let persisted = false;
     try { if (navigator.storage && navigator.storage.persist) persisted = await navigator.storage.persist(); } catch(e){}
     const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-    $("#storeInfo").textContent = "Tus datos se guardan solo en este teléfono, no se envían a ningún servidor. " +
-      (standalone ? "" : "Instalá la app en la pantalla de inicio para que el sistema no los borre. ") +
-      "Hacé una copia de seguridad cada tanto.";
-    if (!standalone && !persisted && !localStorage.getItem("tomas_hide_install"))
+    if (!standalone && !persisted && !LS.read("tomas_hide_install",null))
       banner("Tip: agregá la app a la pantalla de inicio (Compartir → Agregar a inicio) para usarla como app y proteger tus datos. (Tocá para ocultar)");
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+    if (CLOUD_ENABLED){
+      // si había un grupo, mostramos la copia local enseguida (sirve sin conexión)
+      const lastHid = LS.read(K_HID,null), cached = lastHid && LS.read(kSet(lastHid),null);
+      try{
+        await loadScript("vendor/supabase.js");
+        store.setClient(window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, { auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true } }));
+        if(cached) await store.enterCloud(cached);
+        wireFamily();
+      }catch(e){ console.warn("No se pudo cargar la sincronización", e); if(cached){ /* sin librería no podemos sincronizar */ } }
+      renderFamily();
+    }
   }
 
   // ---------- copia de seguridad ----------
@@ -693,14 +1058,20 @@
   let saving=false;
   $("#feedForm").addEventListener("submit",async e=>{
     e.preventDefault(); if(saving) return;
-    const start=new Date($("#fStart").value).getTime();
+    const editing0=feeds.find(f=>f.id===editingId);
+    // el campo de hora no tiene segundos: si no se tocó, conservamos la hora exacta original
+    let start=new Date($("#fStart").value).getTime();
+    if(editing0 && $("#fStart").value===toLocalInput(editing0.start)) start=editing0.start;
     const ml=Number($("#fMl").value);
     if(!start||isNaN(start)){ toast("Hora inválida"); return; }
     if(start>Date.now()+60*MIN){ toast("La hora está en el futuro"); return; }
     if(!(ml>=0&&ml<=500)){ toast("Cantidad inválida"); return; }
     if(!selType){ toast("Elegí el tipo"); return; }
     const id = editingId || ("f"+start.toString(36)+Math.random().toString(36).slice(2,7));
-    const endV=$("#fEnd").value, end=endV?new Date(endV).getTime():null;
+    const endV=$("#fEnd").value;
+    let end=endV?new Date(endV).getTime():null;
+    if(editing0 && editing0.end && endV===toLocalInput(editing0.end)) end=editing0.end;
+    if(end!==null && end<start && end>=start-60000) end=start; // misma minuto: evitar fin "anterior" por los segundos
     if(end!==null && (isNaN(end)||end<start)){ toast("La hora de fin es anterior al inicio"); return; }
     const data={ start, end, active:false, type:selType, ml, note:$("#fNote").value.trim().slice(0,200) };
     const prev=feeds.find(f=>f.id===id);
