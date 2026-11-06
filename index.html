@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14161c">
-<title>Registro de alimentación</title>
+<title>Registro Alimentación Bebé</title>
 <meta name="description" content="Registrá las tomas de tu bebé: hora, tipo (relactador, mamadera, jeringa), ml, próxima toma y totales por día, semana y mes.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -108,7 +108,7 @@
 
 <!-- ============ INICIO ============ -->
 <section id="v-home" class="view on">
-  <h1>Registro de alimentación</h1>
+  <h1>Registro Alimentación Bebé</h1>
 
   <div class="card" id="nextCard">
     <h2>Próxima toma</h2>
@@ -241,7 +241,7 @@
     <input id="fileImport" type="file" accept="application/json,.json" hidden>
     <div class="small muted" style="margin-top:10px">Sirve también para pasar los datos a otro teléfono.</div>
   </div>
-  <div class="small muted" style="text-align:center;padding:8px 0 4px">Registro de alimentación · código abierto</div>
+  <div class="small muted" style="text-align:center;padding:8px 0 4px">Registro Alimentación Bebé · código abierto</div>
 </section>
 
 <nav>
@@ -357,7 +357,7 @@
       async save(id,data){ list=list.filter(x=>x.id!==id); list.push({id,...data}); if(!write(K,list)) throw new Error("No se pudo guardar"); onF(list.slice()); },
       async remove(id){ list=list.filter(x=>x.id!==id); write(K,list); onF(list.slice()); },
       async saveSettings(s){ if(!write(KS,s)) throw new Error("No se pudo guardar"); onS(s); },
-      exportAll(){ return { app:"registro-alimentacion", version:1, exportedAt:new Date().toISOString(), settings:read(KS,null), feeds:list.slice() }; },
+      exportAll(){ return { app:"registro-alimentacion-bebe", version:1, exportedAt:new Date().toISOString(), settings:read(KS,null), feeds:list.slice() }; },
       async importAll(obj, mode){
         if(!obj || !Array.isArray(obj.feeds)) throw new Error("Archivo inválido");
         const incoming = obj.feeds.filter(f=>f && typeof f.id==="string" && typeof f.start==="number");
