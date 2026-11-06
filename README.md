@@ -2,7 +2,7 @@
 
 App web gratuita y de código abierto para registrar las tomas de alimentación de un bebé desde el celular.
 
-**[➡️ Abrir la app](https://TU-USUARIO.github.io/registro-alimentacion-bebe/)**
+**[➡️ Abrir la app](https://agustin253.github.io/registro-alimentacion-bebe/)**
 
 ## Qué hace
 
